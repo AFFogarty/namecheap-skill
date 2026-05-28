@@ -496,6 +496,336 @@ cmd_public_ip() {
     echo "$ip"
 }
 
+cmd_dns_get_list() {
+    local domain=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" ]]; then
+        print_error "Domain is required. Usage: ./namecheap.sh domains.dns.getList --domain example.com"
+        exit 1
+    fi
+
+    local sld tld
+    read -r sld tld <<< "$(parse_domain "$domain")"
+
+    print_info "Fetching nameservers for ${domain}..."
+    local response
+    response=$(api_request "domains.dns.getList" "SLD=${sld}" "TLD=${tld}")
+
+    local using_our_dns
+    using_our_dns=$(echo "$response" | grep -oP 'IsUsingOurDNS="\K[^"]+' || echo "unknown")
+    echo ""
+    print_info "Using Namecheap DNS: ${using_our_dns}"
+    echo ""
+    echo "Nameservers:"
+    echo "$response" | grep -oP '<Nameserver>\K[^<]+' | while read -r ns; do
+        echo "  - ${ns}"
+    done
+    echo ""
+}
+
+cmd_dns_set_default() {
+    local domain=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" ]]; then
+        print_error "Domain is required. Usage: ./namecheap.sh domains.dns.setDefault --domain example.com"
+        exit 1
+    fi
+
+    local sld tld
+    read -r sld tld <<< "$(parse_domain "$domain")"
+
+    print_info "Setting ${domain} to use Namecheap default DNS..."
+    local response
+    response=$(api_request "domains.dns.setDefault" "SLD=${sld}" "TLD=${tld}")
+
+    if echo "$response" | grep -q 'Updated="true"'; then
+        print_success "Domain ${domain} now uses Namecheap default DNS!"
+    else
+        print_error "Failed to set default DNS."
+        echo "$response"
+    fi
+}
+
+cmd_dns_set_custom() {
+    local domain="" nameservers=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            --nameservers) nameservers="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" || -z "$nameservers" ]]; then
+        print_error "Both --domain and --nameservers are required."
+        echo "Usage: ./namecheap.sh domains.dns.setCustom --domain example.com --nameservers ns1.cloudflare.com,ns2.cloudflare.com"
+        exit 1
+    fi
+
+    local sld tld
+    read -r sld tld <<< "$(parse_domain "$domain")"
+
+    print_info "Setting ${domain} to use custom nameservers: ${nameservers}"
+    local response
+    response=$(api_request "domains.dns.setCustom" "SLD=${sld}" "TLD=${tld}" "Nameservers=${nameservers}")
+
+    if echo "$response" | grep -q 'Updated="true"'; then
+        print_success "Domain ${domain} now uses custom nameservers!"
+    else
+        print_error "Failed to set custom nameservers."
+        echo "$response"
+    fi
+}
+
+cmd_dns_get_email_forwarding() {
+    local domain=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" ]]; then
+        print_error "Domain is required. Usage: ./namecheap.sh domains.dns.getEmailForwarding --domain example.com"
+        exit 1
+    fi
+
+    print_info "Fetching email forwarding for ${domain}..."
+    local response
+    response=$(api_request "domains.dns.getEmailForwarding" "DomainName=${domain}")
+
+    echo ""
+    printf "%-20s %-40s\n" "MAILBOX" "FORWARDS TO"
+    printf "%-20s %-40s\n" "-------" "-----------"
+
+    echo "$response" | grep -oP '<Forward[^/]*/>' | while read -r line; do
+        local mailbox forward_to
+        mailbox=$(echo "$line" | grep -oP 'mailbox="\K[^"]+' || echo "")
+        forward_to=$(echo "$line" | grep -oP 'ForwardTo="\K[^"]+' || echo "")
+        printf "%-20s %-40s\n" "${mailbox}@${domain}" "$forward_to"
+    done
+    echo ""
+}
+
+cmd_dns_set_email_forwarding() {
+    local domain="" forwards_file=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            --forwards) forwards_file="$2"; shift 2 ;;
+            --mailbox) 
+                # Inline single forwarding rule
+                local inline_mailbox="$2"; shift 2 ;;
+            --forward-to)
+                local inline_forward_to="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" ]]; then
+        print_error "Domain is required."
+        echo "Usage: ./namecheap.sh domains.dns.setEmailForwarding --domain example.com --mailbox info --forward-to user@gmail.com"
+        echo "   or: ./namecheap.sh domains.dns.setEmailForwarding --domain example.com --forwards forwards.json"
+        exit 1
+    fi
+
+    local params=("DomainName=${domain}")
+
+    if [[ -n "${inline_mailbox:-}" && -n "${inline_forward_to:-}" ]]; then
+        # Single inline rule
+        params+=("MailBox1=${inline_mailbox}" "ForwardTo1=${inline_forward_to}")
+    elif [[ -n "$forwards_file" ]]; then
+        if [[ ! -f "$forwards_file" ]]; then
+            print_error "Forwards file not found: ${forwards_file}"
+            exit 1
+        fi
+        local i=1
+        while IFS= read -r line; do
+            local mailbox forward_to
+            mailbox=$(echo "$line" | grep -oP '"MailBox"\s*:\s*"\K[^"]+' || echo "")
+            forward_to=$(echo "$line" | grep -oP '"ForwardTo"\s*:\s*"\K[^"]+' || echo "")
+            if [[ -n "$mailbox" && -n "$forward_to" ]]; then
+                params+=("MailBox${i}=${mailbox}" "ForwardTo${i}=${forward_to}")
+                ((i++))
+            fi
+        done < <(python3 -c "
+import json, sys
+with open('${forwards_file}') as f:
+    rules = json.load(f)
+for r in rules:
+    print(json.dumps(r))
+" 2>/dev/null || jq -c '.[]' "$forwards_file")
+    else
+        print_error "Provide either --mailbox/--forward-to or --forwards <file.json>"
+        exit 1
+    fi
+
+    print_info "Setting email forwarding for ${domain}..."
+    local response
+    response=$(api_request "domains.dns.setEmailForwarding" "${params[@]}")
+
+    if echo "$response" | grep -q 'IsSuccess="true"'; then
+        print_success "Email forwarding updated for ${domain}!"
+    else
+        print_error "Failed to set email forwarding."
+        echo "$response"
+    fi
+}
+
+cmd_ns_create() {
+    local domain="" nameserver="" ip=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            --nameserver) nameserver="$2"; shift 2 ;;
+            --ip) ip="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" || -z "$nameserver" || -z "$ip" ]]; then
+        print_error "Missing required parameters."
+        echo "Usage: ./namecheap.sh domains.ns.create --domain example.com --nameserver ns1.example.com --ip 1.2.3.4"
+        exit 1
+    fi
+
+    local sld tld
+    read -r sld tld <<< "$(parse_domain "$domain")"
+
+    print_info "Creating nameserver ${nameserver} -> ${ip}..."
+    local response
+    response=$(api_request "domains.ns.create" "SLD=${sld}" "TLD=${tld}" "Nameserver=${nameserver}" "IP=${ip}")
+
+    if echo "$response" | grep -q 'IsSuccess="true"'; then
+        print_success "Nameserver ${nameserver} created!"
+    else
+        print_error "Failed to create nameserver."
+        echo "$response"
+    fi
+}
+
+cmd_ns_delete() {
+    local domain="" nameserver=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            --nameserver) nameserver="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" || -z "$nameserver" ]]; then
+        print_error "Missing required parameters."
+        echo "Usage: ./namecheap.sh domains.ns.delete --domain example.com --nameserver ns1.example.com"
+        exit 1
+    fi
+
+    local sld tld
+    read -r sld tld <<< "$(parse_domain "$domain")"
+
+    print_info "Deleting nameserver ${nameserver}..."
+    local response
+    response=$(api_request "domains.ns.delete" "SLD=${sld}" "TLD=${tld}" "Nameserver=${nameserver}")
+
+    if echo "$response" | grep -q 'IsSuccess="true"'; then
+        print_success "Nameserver ${nameserver} deleted!"
+    else
+        print_error "Failed to delete nameserver."
+        echo "$response"
+    fi
+}
+
+cmd_ns_get_info() {
+    local domain="" nameserver=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            --nameserver) nameserver="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" || -z "$nameserver" ]]; then
+        print_error "Missing required parameters."
+        echo "Usage: ./namecheap.sh domains.ns.getInfo --domain example.com --nameserver ns1.example.com"
+        exit 1
+    fi
+
+    local sld tld
+    read -r sld tld <<< "$(parse_domain "$domain")"
+
+    print_info "Fetching info for nameserver ${nameserver}..."
+    local response
+    response=$(api_request "domains.ns.getInfo" "SLD=${sld}" "TLD=${tld}" "Nameserver=${nameserver}")
+
+    local ns_ip
+    ns_ip=$(echo "$response" | grep -oP 'IP="\K[^"]+' || echo "unknown")
+    echo ""
+    echo "Nameserver: ${nameserver}"
+    echo "IP Address: ${ns_ip}"
+    local statuses
+    statuses=$(echo "$response" | grep -oP '<Status>\K[^<]+' | tr '\n' ', ' | sed 's/,$//')
+    if [[ -n "$statuses" ]]; then
+        echo "Status:     ${statuses}"
+    fi
+    echo ""
+}
+
+cmd_ns_update() {
+    local domain="" nameserver="" old_ip="" new_ip=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --domain) domain="$2"; shift 2 ;;
+            --nameserver) nameserver="$2"; shift 2 ;;
+            --old-ip) old_ip="$2"; shift 2 ;;
+            --ip) new_ip="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
+    if [[ -z "$domain" || -z "$nameserver" || -z "$old_ip" || -z "$new_ip" ]]; then
+        print_error "Missing required parameters."
+        echo "Usage: ./namecheap.sh domains.ns.update --domain example.com --nameserver ns1.example.com --old-ip 1.2.3.4 --ip 5.6.7.8"
+        exit 1
+    fi
+
+    local sld tld
+    read -r sld tld <<< "$(parse_domain "$domain")"
+
+    print_info "Updating nameserver ${nameserver}: ${old_ip} -> ${new_ip}..."
+    local response
+    response=$(api_request "domains.ns.update" "SLD=${sld}" "TLD=${tld}" "Nameserver=${nameserver}" "OldIP=${old_ip}" "IP=${new_ip}")
+
+    if echo "$response" | grep -q 'IsSuccess="true"'; then
+        print_success "Nameserver ${nameserver} updated to ${new_ip}!"
+    else
+        print_error "Failed to update nameserver."
+        echo "$response"
+    fi
+}
+
 # Help
 cmd_help() {
     echo "Namecheap DNS Management CLI"
@@ -503,13 +833,26 @@ cmd_help() {
     echo "Usage: ./namecheap.sh <command> [options]"
     echo ""
     echo "Commands:"
-    echo "  setup                    Configure API credentials and test connection"
-    echo "  public-ip                Show your public IP address"
-    echo "  domains.getList          List your Namecheap domains"
-    echo "  domains.dns.getHosts     Get DNS records for a domain"
-    echo "  domains.dns.setHosts     Set all DNS records for a domain (from JSON)"
-    echo "  dns.addHost              Add a single DNS record (preserves existing)"
-    echo "  dns.removeHost           Remove a single DNS record"
+    echo "  setup                              Configure API credentials and test connection"
+    echo "  public-ip                          Show your public IP address"
+    echo ""
+    echo "  domains.getList                    List your Namecheap domains"
+    echo ""
+    echo "  domains.dns.getList                Get nameservers for a domain"
+    echo "  domains.dns.getHosts               Get DNS records for a domain"
+    echo "  domains.dns.setHosts               Set all DNS records (from JSON file)"
+    echo "  domains.dns.setDefault             Use Namecheap default DNS"
+    echo "  domains.dns.setCustom              Use custom nameservers"
+    echo "  domains.dns.getEmailForwarding     Get email forwarding rules"
+    echo "  domains.dns.setEmailForwarding     Set email forwarding rules"
+    echo ""
+    echo "  domains.ns.create                  Create a child nameserver (glue record)"
+    echo "  domains.ns.delete                  Delete a child nameserver"
+    echo "  domains.ns.getInfo                 Get nameserver info"
+    echo "  domains.ns.update                  Update nameserver IP"
+    echo ""
+    echo "  dns.addHost                        Add a single DNS record (preserves existing)"
+    echo "  dns.removeHost                     Remove a single DNS record"
     echo ""
     echo "Options:"
     echo "  --domain <domain>        Domain name (e.g., example.com)"
@@ -519,6 +862,13 @@ cmd_help() {
     echo "  --ttl <seconds>          TTL in seconds (default: 1800)"
     echo "  --mxpref <priority>      MX preference (for MX records)"
     echo "  --hosts <file.json>      JSON file with host records"
+    echo "  --nameservers <ns,...>   Comma-separated nameservers"
+    echo "  --nameserver <ns>        Nameserver hostname"
+    echo "  --ip <address>           IP address for nameserver"
+    echo "  --old-ip <address>       Current IP (for ns.update)"
+    echo "  --mailbox <name>         Email mailbox name"
+    echo "  --forward-to <email>     Forward destination email"
+    echo "  --forwards <file.json>   JSON file with forwarding rules"
     echo "  --search <term>          Search term for domain list"
     echo "  --page <n>               Page number for domain list"
     echo "  --page-size <n>          Page size for domain list (10-100)"
@@ -529,6 +879,9 @@ cmd_help() {
     echo "  ./namecheap.sh domains.dns.getHosts --domain example.com"
     echo "  ./namecheap.sh dns.addHost --domain example.com --type A --name www --address 1.2.3.4"
     echo "  ./namecheap.sh dns.removeHost --domain example.com --type A --name www"
+    echo "  ./namecheap.sh domains.dns.setCustom --domain example.com --nameservers ns1.cloudflare.com,ns2.cloudflare.com"
+    echo "  ./namecheap.sh domains.dns.setEmailForwarding --domain example.com --mailbox info --forward-to user@gmail.com"
+    echo "  ./namecheap.sh domains.ns.create --domain example.com --nameserver ns1.example.com --ip 1.2.3.4"
 }
 
 # Main dispatch
@@ -537,14 +890,23 @@ main() {
     shift || true
 
     case "$command" in
-        setup)                  cmd_setup "$@" ;;
-        public-ip)              cmd_public_ip "$@" ;;
-        domains.getList)        cmd_domains_list "$@" ;;
-        domains.dns.getHosts)   cmd_dns_get_hosts "$@" ;;
-        domains.dns.setHosts)   cmd_dns_set_hosts "$@" ;;
-        dns.addHost)            cmd_dns_add_host "$@" ;;
-        dns.removeHost)         cmd_dns_remove_host "$@" ;;
-        help|--help|-h)         cmd_help ;;
+        setup)                              cmd_setup "$@" ;;
+        public-ip)                          cmd_public_ip "$@" ;;
+        domains.getList)                    cmd_domains_list "$@" ;;
+        domains.dns.getList)                cmd_dns_get_list "$@" ;;
+        domains.dns.getHosts)               cmd_dns_get_hosts "$@" ;;
+        domains.dns.setHosts)               cmd_dns_set_hosts "$@" ;;
+        domains.dns.setDefault)             cmd_dns_set_default "$@" ;;
+        domains.dns.setCustom)              cmd_dns_set_custom "$@" ;;
+        domains.dns.getEmailForwarding)     cmd_dns_get_email_forwarding "$@" ;;
+        domains.dns.setEmailForwarding)     cmd_dns_set_email_forwarding "$@" ;;
+        domains.ns.create)                  cmd_ns_create "$@" ;;
+        domains.ns.delete)                  cmd_ns_delete "$@" ;;
+        domains.ns.getInfo)                 cmd_ns_get_info "$@" ;;
+        domains.ns.update)                  cmd_ns_update "$@" ;;
+        dns.addHost)                        cmd_dns_add_host "$@" ;;
+        dns.removeHost)                     cmd_dns_remove_host "$@" ;;
+        help|--help|-h)                     cmd_help ;;
         *)
             print_error "Unknown command: ${command}"
             echo ""

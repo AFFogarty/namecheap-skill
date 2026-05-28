@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate skill
+        run: |
+          test -f skills/namecheap-dns/SKILL.md || { echo "SKILL.md missing"; exit 1; }
+          test -f skills/namecheap-dns/namecheap.sh || { echo "namecheap.sh missing"; exit 1; }
+          bash -n skills/namecheap-dns/namecheap.sh
+
+      - name: Package skill
+        run: |
+          mkdir -p dist
+          zip -r "dist/namecheap-dns-${GITHUB_REF_NAME}.zip" skills/namecheap-dns
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            "dist/namecheap-dns-${GITHUB_REF_NAME}.zip"
