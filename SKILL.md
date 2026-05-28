@@ -37,6 +37,9 @@ bash namecheap.sh setup
 # List domains
 bash namecheap.sh domains.getList
 
+# Get nameservers for a domain (shows if using Namecheap DNS or custom)
+bash namecheap.sh domains.dns.getList --domain example.com
+
 # Get DNS records for a domain
 bash namecheap.sh domains.dns.getHosts --domain example.com
 
@@ -48,6 +51,33 @@ bash namecheap.sh dns.removeHost --domain example.com --type A --name www --addr
 
 # Replace all records from a JSON file
 bash namecheap.sh domains.dns.setHosts --domain example.com --hosts records.json
+
+# Switch to Namecheap default DNS
+bash namecheap.sh domains.dns.setDefault --domain example.com
+
+# Switch to custom nameservers
+bash namecheap.sh domains.dns.setCustom --domain example.com --nameservers ns1.cloudflare.com,ns2.cloudflare.com
+
+# Get email forwarding rules
+bash namecheap.sh domains.dns.getEmailForwarding --domain example.com
+
+# Set email forwarding (single rule)
+bash namecheap.sh domains.dns.setEmailForwarding --domain example.com --mailbox info --forward-to user@gmail.com
+
+# Set email forwarding (from JSON file)
+bash namecheap.sh domains.dns.setEmailForwarding --domain example.com --forwards forwards.json
+
+# Create a child nameserver (glue record)
+bash namecheap.sh domains.ns.create --domain example.com --nameserver ns1.example.com --ip 1.2.3.4
+
+# Delete a child nameserver
+bash namecheap.sh domains.ns.delete --domain example.com --nameserver ns1.example.com
+
+# Get nameserver info
+bash namecheap.sh domains.ns.getInfo --domain example.com --nameserver ns1.example.com
+
+# Update nameserver IP
+bash namecheap.sh domains.ns.update --domain example.com --nameserver ns1.example.com --old-ip 1.2.3.4 --ip 5.6.7.8
 ```
 
 ## Behavior
