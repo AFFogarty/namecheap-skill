@@ -1,6 +1,17 @@
 # Namecheap DNS Management Skill
 
-A Copilot CLI agent skill for managing DNS records via the [Namecheap API](https://www.namecheap.com/support/api/methods/).
+A [Copilot CLI](https://github.com/github/awesome-copilot) agent skill for managing DNS records via the [Namecheap API](https://www.namecheap.com/support/api/methods/).
+
+## Structure
+
+```
+.
+├── SKILL.md              # Skill definition (name, description, workflow)
+├── namecheap.sh          # CLI wrapper script for the Namecheap API
+├── references/
+│   └── namecheap-api.md  # API reference documentation
+└── README.md
+```
 
 ## Prerequisites
 
@@ -11,33 +22,33 @@ A Copilot CLI agent skill for managing DNS records via the [Namecheap API](https
 ## Quick Start
 
 ```bash
-# Make the script executable
-chmod +x namecheap.sh
+# Show your public IP (needed for whitelisting)
+bash namecheap.sh public-ip
 
-# Run setup (shows your public IP and configures credentials)
-./namecheap.sh setup
+# Run setup (configures credentials and tests connection)
+bash namecheap.sh setup
 
 # List your domains
-./namecheap.sh domains.getList
+bash namecheap.sh domains.getList
 
 # View DNS records
-./namecheap.sh domains.dns.getHosts --domain example.com
+bash namecheap.sh domains.dns.getHosts --domain example.com
 
 # Add a DNS record
-./namecheap.sh dns.addHost --domain example.com --type A --name www --address 1.2.3.4
+bash namecheap.sh dns.addHost --domain example.com --type A --name www --address 1.2.3.4
 
 # Remove a DNS record
-./namecheap.sh dns.removeHost --domain example.com --type A --name www
+bash namecheap.sh dns.removeHost --domain example.com --type A --name www
 ```
 
 ## Setup
 
-1. Run `./namecheap.sh public-ip` to see your public IP address
+1. Run `bash namecheap.sh public-ip` to see your public IP address
 2. Go to https://ap.www.namecheap.com/settings/tools/apiaccess/
 3. Enable API access (select **ON**)
 4. Add your public IP to the whitelist
 5. Copy your API key
-6. Run `./namecheap.sh setup` and enter your username and API key
+6. Run `bash namecheap.sh setup` and enter your username and API key
 
 Credentials are stored in `~/.namecheap-api` with `600` permissions.
 
@@ -56,7 +67,3 @@ Credentials are stored in `~/.namecheap-api` with `600` permissions.
 ## Supported Record Types
 
 A, AAAA, CNAME, MX, MXE, TXT, URL, URL301, FRAME
-
-## Skill Integration
-
-See [skill.md](skill.md) for the Copilot CLI skill definition and usage instructions.
