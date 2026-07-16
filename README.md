@@ -1,6 +1,6 @@
 # Namecheap DNS Management Skill
 
-An [agent skill](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) for managing DNS records via the [Namecheap API](https://www.namecheap.com/support/api/methods/). Works with GitHub Copilot CLI, the Copilot cloud agent, and agent mode in VS Code.
+An [agent skill](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) for managing DNS records via the [Namecheap API](https://www.namecheap.com/support/api/methods/). It follows the [Agent Skills](https://agentskills.io) open standard, so it works with GitHub Copilot (CLI, cloud agent, and VS Code agent mode) and with [Claude Code](https://code.claude.com/docs) — installable as a plugin or a standalone skill (see [With Claude Code](#with-claude-code)).
 
 ## Repository structure
 
@@ -48,12 +48,38 @@ Check for and apply upstream updates later with:
 gh skill update namecheap-dns
 ```
 
+### With Claude Code
+
+Install as a plugin from the marketplace bundled in this repo:
+
+```bash
+# In Claude Code, add the marketplace, then install the plugin:
+/plugin marketplace add brunoborges/namecheap-skill
+/plugin install namecheap-dns@namecheap-skill
+```
+
+Then ask in natural language (for example, *"list my Namecheap domains"*) or invoke the
+namespaced command `/namecheap-dns:namecheap-dns`.
+
+Prefer a standalone skill instead of a plugin? Copy the skill directory into Claude Code's
+skills folder:
+
+```bash
+git clone https://github.com/brunoborges/namecheap-skill.git
+
+# Personal skill (available in all projects)
+cp -r namecheap-skill/skills/namecheap-dns ~/.claude/skills/
+
+# Project skill (single repository)
+cp -r namecheap-skill/skills/namecheap-dns .claude/skills/
+```
+
 ### Manual installation
 
 Copy the `skills/namecheap-dns` directory into one of the following locations:
 
 - **Project skill** (single repository): `.github/skills/`, `.claude/skills/`, or `.agents/skills/`
-- **Personal skill** (shared across projects): `~/.copilot/skills/` or `~/.agents/skills/`
+- **Personal skill** (shared across projects): `~/.copilot/skills/`, `~/.claude/skills/`, or `~/.agents/skills/`
 
 ```bash
 git clone https://github.com/brunoborges/namecheap-skill.git

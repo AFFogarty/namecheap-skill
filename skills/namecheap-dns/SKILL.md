@@ -19,13 +19,19 @@ Before executing any API commands, verify credentials are configured:
 2. If not configured, guide the user through setup:
    a. **Show public IP** — run `curl -s https://api.ipify.org` to display the user's public IP
    b. **Instruct IP whitelisting** — tell the user to go to https://ap.www.namecheap.com/settings/tools/apiaccess/, enable API (select ON), and whitelist the displayed IP
-   c. **Collect credentials** — use `ask_user` to get their Namecheap username, then their API key
+   c. **Collect credentials** — ask the user for their Namecheap username, then their API key
    d. **Save config** — write credentials to `~/.namecheap-api` with `chmod 600`
    e. **Validate** — run a test API call to confirm access works
 
 ### DNS Operations
 
-Use the `namecheap.sh` script (bundled in this skill's directory) for all API interactions:
+Use the `namecheap.sh` script (bundled in this skill's directory) for all API interactions.
+
+**Running the script.** The commands below write `namecheap.sh` for brevity, but the script
+lives in this skill's directory — not the current working directory — so always invoke it by its
+full path. In Claude Code, reference it as `${CLAUDE_SKILL_DIR}/namecheap.sh` (this resolves for
+personal, project, and plugin installs). For example, use
+`bash ${CLAUDE_SKILL_DIR}/namecheap.sh domains.getList`.
 
 ```bash
 # Show public IP (for setup)
@@ -84,7 +90,7 @@ bash namecheap.sh domains.ns.update --domain example.com --nameserver ns1.exampl
 
 - **Always check credentials first.** Before any API operation, verify `~/.namecheap-api` exists and is readable. If not, run the setup flow.
 - **Show current records before modifying.** Before adding or removing records, always fetch and display the current DNS records so the user can confirm the change.
-- **Use `ask_user` to confirm destructive changes.** Before removing records or replacing all records with `setHosts`, confirm with the user.
+- **Ask the user to confirm destructive changes.** Before removing records or replacing all records with `setHosts`, confirm with the user.
 - **The Namecheap `setHosts` API replaces ALL records.** Never call `domains.dns.setHosts` directly unless you have fetched all existing records first. Use `dns.addHost` and `dns.removeHost` for safe single-record operations — they handle the fetch-modify-write cycle internally.
 - **Explain TTL in human terms.** When the user asks about TTL, explain that 1800 = 30 minutes, 3600 = 1 hour, etc.
 - **Handle multi-part TLDs.** Domains like `example.co.uk` have SLD=example and TLD=co.uk. The script handles this automatically.

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "namecheap-skill",
+  "owner": {
+    "name": "brunoborges"
+  },
+  "description": "Namecheap DNS management skill for Claude Code.",
+  "plugins": [
+    {
+      "name": "namecheap-dns",
+      "source": "./",
+      "description": "Manage DNS records for Namecheap domains via the Namecheap API — list domains, view/add/update/remove DNS records, nameservers, and email forwarding."
+    }
+  ]
+}

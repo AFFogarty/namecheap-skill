@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "namecheap-dns",
+  "version": "1.0.0",
+  "description": "Manage DNS records for domains registered with Namecheap via their API. List domains, view/add/update/remove DNS host entries (A, AAAA, CNAME, MX, TXT, etc.), manage nameservers and email forwarding.",
+  "author": {
+    "name": "brunoborges"
+  },
+  "homepage": "https://github.com/brunoborges/namecheap-skill",
+  "repository": "https://github.com/brunoborges/namecheap-skill",
+  "keywords": ["namecheap", "dns", "domains", "nameservers", "email-forwarding"]
+}

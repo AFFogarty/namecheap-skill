@@ -22,6 +22,13 @@ jobs:
           test -f skills/namecheap-dns/namecheap.sh || { echo "namecheap.sh missing"; exit 1; }
           bash -n skills/namecheap-dns/namecheap.sh
 
+      - name: Validate Claude Code plugin manifests
+        run: |
+          test -f .claude-plugin/marketplace.json || { echo "marketplace.json missing"; exit 1; }
+          test -f .claude-plugin/plugin.json || { echo "plugin.json missing"; exit 1; }
+          python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
+          python3 -m json.tool .claude-plugin/plugin.json > /dev/null
+
       - name: Package skill
         run: |
           mkdir -p dist
