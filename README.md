@@ -68,9 +68,11 @@ skills folder:
 git clone https://github.com/brunoborges/namecheap-skill.git
 
 # Personal skill (available in all projects)
+mkdir -p ~/.claude/skills
 cp -r namecheap-skill/skills/namecheap-dns ~/.claude/skills/
 
 # Project skill (single repository)
+mkdir -p .claude/skills
 cp -r namecheap-skill/skills/namecheap-dns .claude/skills/
 ```
 
@@ -83,6 +85,7 @@ Copy the `skills/namecheap-dns` directory into one of the following locations:
 
 ```bash
 git clone https://github.com/brunoborges/namecheap-skill.git
+mkdir -p ~/.copilot/skills
 cp -r namecheap-skill/skills/namecheap-dns ~/.copilot/skills/
 ```
 

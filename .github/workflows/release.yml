@@ -26,8 +26,16 @@ jobs:
         run: |
           test -f .claude-plugin/marketplace.json || { echo "marketplace.json missing"; exit 1; }
           test -f .claude-plugin/plugin.json || { echo "plugin.json missing"; exit 1; }
-          python3 -m json.tool .claude-plugin/marketplace.json > /dev/null
-          python3 -m json.tool .claude-plugin/plugin.json > /dev/null
+          # Required fields: marketplace name/owner/plugins; each plugin name/source
+          jq -e '.name and .owner and (.plugins | length > 0) and all(.plugins[]; .name and .source)' \
+            .claude-plugin/marketplace.json > /dev/null || { echo "marketplace.json missing required fields"; exit 1; }
+          jq -e '.name' .claude-plugin/plugin.json > /dev/null || { echo "plugin.json missing 'name'"; exit 1; }
+          # If plugin.json sets a version, it must match the release tag (v1.2.3 -> 1.2.3)
+          v=$(jq -r '.version // empty' .claude-plugin/plugin.json)
+          want="${GITHUB_REF_NAME#v}"
+          if [ -n "$v" ] && [ "$v" != "$want" ]; then
+            echo "plugin.json version '$v' does not match release tag '${GITHUB_REF_NAME}'"; exit 1
+          fi
 
       - name: Package skill
         run: |
