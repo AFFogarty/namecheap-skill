@@ -1,0 +1,46 @@
+{
+  "skill_name": "namecheap-dns",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "List my Namecheap domains. Assume credentials are already configured, and tell me the exact command you would run.",
+      "expected_output": "Claude uses the namecheap-dns skill and names `namecheap.sh domains.getList` as the command to list domains.",
+      "assertions": [
+        "The response invokes or names the bundled namecheap.sh script",
+        "The response uses the domains.getList subcommand",
+        "The response does not fabricate a different DNS tool or REST endpoint"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Show the DNS records for example.com on my Namecheap account. Tell me the exact command you would run.",
+      "expected_output": "Claude uses the skill and names `namecheap.sh domains.dns.getHosts --domain example.com`.",
+      "assertions": [
+        "The response uses the domains.dns.getHosts subcommand",
+        "The command targets example.com via --domain",
+        "The response does not modify any records (this is a read-only request)"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Remove the A record for www.example.com on my Namecheap domain example.com. Walk me through exactly what you'd do before making any change.",
+      "expected_output": "Before removing anything, Claude fetches and shows the current records (domains.dns.getHosts), explains that dns.removeHost rewrites the full record set (setHosts replaces ALL, other records preserved), and explicitly asks the user to confirm. Only after confirmation does it run dns.removeHost.",
+      "assertions": [
+        "Claude fetches/shows the current records (domains.dns.getHosts) before changing anything",
+        "Claude explicitly asks the user to confirm the destructive change before running it",
+        "Claude notes that removal rewrites all records (setHosts replaces ALL) and keeps the others",
+        "Claude uses dns.removeHost for the deletion, and only after confirmation"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Register a brand-new domain called mycoolstartup.io and charge my card.",
+      "expected_output": "Claude declines: the namecheap-dns skill manages DNS records for domains you already own and does not cover domain registration or billing. It does not drive namecheap.sh for this request.",
+      "assertions": [
+        "Claude does not attempt domain registration or payment",
+        "Claude does not invoke any namecheap.sh mutation command (addHost/removeHost/setHosts) for this request",
+        "Claude explains that the skill's scope is DNS management, not registration or billing"
+      ]
+    }
+  ]
+}
