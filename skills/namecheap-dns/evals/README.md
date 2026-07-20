@@ -23,9 +23,11 @@ bash skills/namecheap-dns/evals/run-smoke.sh
 ```
 
 It drives the skill via `claude -p --plugin-dir <repo-root>`, asks Claude for the command it
-would run (no credentials, no DNS changes), and greps the response. Exit 0 = all pass. Because it
-drives the model it needs network + auth and can be mildly sensitive to model behavior, so treat it
-as a developer check rather than a hermetic CI gate.
+would run (no credentials, no DNS changes), and greps the response. Exit 0 = all pass. It needs the
+`claude` CLI on PATH (exits 2 otherwise) and uses `timeout`/`gtimeout` when available. A case whose
+model call fails or returns nothing is a hard FAIL, never a silent pass. Because it drives the model
+it needs network + auth and can be mildly sensitive to phrasing, so treat it as a developer check
+rather than a hermetic CI gate.
 
 **Graded suite (`evals.json`):** run with the
 [`skill-creator` plugin](https://github.com/anthropics/skills/tree/main/skills/skill-creator)
